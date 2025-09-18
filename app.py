@@ -1,21 +1,31 @@
 import os
 import logging
 import tempfile
-import sys # <--- ADICIONADO
+import sys
 from flask import Flask, request, render_template, send_from_directory, after_this_request
 import yt_dlp
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from dotenv import load_dotenv
 
-# Carrega as variáveis de ambiente (CLIENT_ID, CLIENT_SECRET) do arquivo .env
-load_dotenv()
+# >>>>>>>>>>>> LÓGICA DE CARREGAMENTO DO .ENV CORRIGIDA <<<<<<<<<<<<
+# Determina o caminho base, considerando se está rodando como .exe ou .py
+if getattr(sys, 'frozen', False):
+    # Rodando como um executável empacotado pelo PyInstaller
+    base_path = sys._MEIPASS
+else:
+    # Rodando como um script .py normal
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+# Constrói o caminho completo para o arquivo .env
+dotenv_path = os.path.join(base_path, '.env')
+# Carrega as variáveis de ambiente a partir do caminho encontrado
+load_dotenv(dotenv_path=dotenv_path)
 
 # Configuração básica de logging
 logging.basicConfig(level=logging.INFO)
 
 # Configura a autenticação com a API do Spotify
-# Envolvemos em um try/except para o app não quebrar se as credenciais estiverem erradas
 try:
     spotify = spotipy.Spotify(auth_manager=SpotifyClientCredentials())
     logging.info("Autenticação com Spotify bem-sucedida.")
@@ -25,23 +35,19 @@ except Exception as e:
 
 app = Flask(__name__)
 
-# <--- FUNÇÃO ADICIONADA --->
 def get_ffmpeg_path():
     """
-    Determina o caminho para o ffmpeg. Se estiver rodando como um .exe (congelado),
-    o caminho será para dentro do pacote. Caso contrário, assume que está no PATH do sistema.
+    Determina o caminho para o ffmpeg.
     """
     if getattr(sys, 'frozen', False):
-        # Caminho dentro do executável PyInstaller
         application_path = sys._MEIPASS
         return os.path.join(application_path, 'ffmpeg_binaries', 'ffmpeg.exe')
     else:
-        # Caminho padrão (procura no PATH do sistema)
         return 'ffmpeg'
 
 def is_spotify_url(url):
     """Verifica se uma URL pertence ao Spotify."""
-    return "open.spotify.com" in url
+    return "spotify.com" in url
 
 def get_spotify_track_info(url):
     """Busca o nome da música e o artista de uma URL do Spotify."""
@@ -65,11 +71,10 @@ def index():
         download_title = ""
 
         try:
-            # Se a URL for do Spotify, identifica a música e prepara uma busca no YouTube
             if is_spotify_url(video_url):
                 track_info = get_spotify_track_info(video_url)
-                download_title = f"{track_info}.mp3" # Nome do arquivo final
-                search_query = f"ytsearch1:{track_info}" # Comando de busca para o yt-dlp
+                download_title = f"{track_info}.mp3"
+                search_query = f"ytsearch1:{track_info}"
                 logging.info(f"Link do Spotify detectado. Buscando no YouTube por: '{track_info}'")
             else:
                 logging.info(f"Link direto detectado. Baixando de: {video_url}")
@@ -77,30 +82,22 @@ def index():
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-                'ffmpeg_location': get_ffmpeg_path(), # <--- LINHA ADICIONADA
+                'ffmpeg_location': get_ffmpeg_path(),
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
                     'preferredquality': '192',
                 }],
                 'noplaylist': True,
-                # Evita baixar vídeos muito longos que não são músicas (ex: shows completos)
                 'match_filter': yt_dlp.utils.match_filter_func("duration < 600"), 
             }
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # O yt-dlp baixa a URL ou o primeiro resultado da busca
                 info_dict = ydl.extract_info(search_query, download=True)
 
-                # Se for uma busca no youtube, o resultado vem dentro de uma lista 'entries'
                 if 'entries' in info_dict:
-                    # Verifica se a lista de entries não está vazia (nenhum vídeo foi baixado)
                     if not info_dict['entries']:
-                        logging.error("Nenhum vídeo foi baixado, pois todos foram filtrados.")
-                        # Lança uma exceção com uma mensagem amigável para o usuário
                         raise Exception("Nenhum vídeo correspondente (com menos de 10 min) foi encontrado.")
-                    
-                    # Se a lista não estiver vazia, pegamos o primeiro item
                     info_dict = info_dict['entries'][0]
                 
                 original_filename = ydl.prepare_filename(info_dict)
@@ -131,7 +128,6 @@ def index():
             logging.error(f"Ocorreu um erro geral: {e}")
             return render_template('index.html', error=f"Ocorreu um erro: {e}")
 
-    # Se a requisição for GET (primeiro acesso à página), apenas mostra o HTML
     return render_template('index.html')
 
 if __name__ == '__main__':

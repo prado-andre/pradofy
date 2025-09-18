@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Download do Prado</title>
+    <title>Prado MP3 Maker </title>
+	<link rel="icon" href="{{ url_for('static', filename='favicon.png') }}">
     <style>
         :root {
             --background-color: #f4f4f9;
@@ -78,7 +79,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Download do Prado</h1>
+        <h1>Procurar Música e Baixar MP3</h1>
         <form action="/" method="post" id="download-form">
             <div class="form-group">
                 <input type="url" name="url" class="url-input" placeholder="Cole a URL (YouTube, Spotify, etc)" required>
@@ -92,23 +93,24 @@
     </div>
 
     <script>
-        // Seleciona o formulário e o botão pelos seus novos IDs
         const downloadForm = document.getElementById('download-form');
         const submitButton = document.getElementById('submit-btn');
 
-        // Adiciona um "ouvinte" que dispara quando o formulário é enviado (botão clicado)
         downloadForm.addEventListener('submit', () => {
-            // Procura pela mensagem de erro na página
             const errorDisplay = document.getElementById('error-display');
             
-            // Se a mensagem de erro existir, nós a escondemos
             if (errorDisplay) {
                 errorDisplay.style.display = 'none';
             }
 
-            // Desabilita o botão e muda o texto para dar feedback ao usuário
             submitButton.disabled = true;
             submitButton.textContent = 'Baixando...';
+
+            // Define um temporizador para reativar o botão após 5 segundos.
+            setTimeout(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Baixar MP3';
+            }, 5000); // 5000 milissegundos = 5 segundos
         });
     </script>
 </body>
