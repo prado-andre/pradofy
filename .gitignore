@@ -1,0 +1,16 @@
+# Ambiente Virtual do Python
+venv/
+
+# Arquivos temporários do Python
+__pycache__/
+*.pyc
+
+# Arquivo de segredos - NUNCA ENVIE PARA O GITHUB!
+.env
+
+# Pastas de construção do PyInstaller
+dist/
+build/
+
+# Pasta antiga de dependências
+dependencies/

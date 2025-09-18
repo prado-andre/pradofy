@@ -1,0 +1,6 @@
+Flask
+yt-dlp
+spotipy
+python-dotenv
+pyinstaller
+waitress

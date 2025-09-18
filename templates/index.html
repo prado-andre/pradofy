@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download do Prado</title>
+    <style>
+        :root {
+            --background-color: #f4f4f9;
+            --container-bg: #ffffff;
+            --text-color: #333;
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --error-color: #dc3545;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: var(--container-bg);
+            padding: 2rem 2.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+        }
+        h1 {
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .url-input {
+            width: 100%;
+            padding: 0.8rem;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: var(--border-radius);
+            box-sizing: border-box; /* Garante que o padding não aumente a largura total */
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 0.8rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+            background-color: var(--primary-color);
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .submit-btn:hover {
+            background-color: var(--primary-hover);
+        }
+        .submit-btn:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
+        }
+        .error-message {
+            color: var(--error-color);
+            margin-top: 1rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Download do Prado</h1>
+        <form action="/" method="post" id="download-form">
+            <div class="form-group">
+                <input type="url" name="url" class="url-input" placeholder="Cole a URL (YouTube, Spotify, etc)" required>
+            </div>
+            <button type="submit" class="submit-btn" id="submit-btn">Baixar MP3</button>
+        </form>
+        
+        {% if error %}
+            <p class="error-message" id="error-display">{{ error }}</p>
+        {% endif %}
+    </div>
+
+    <script>
+        // Seleciona o formulário e o botão pelos seus novos IDs
+        const downloadForm = document.getElementById('download-form');
+        const submitButton = document.getElementById('submit-btn');
+
+        // Adiciona um "ouvinte" que dispara quando o formulário é enviado (botão clicado)
+        downloadForm.addEventListener('submit', () => {
+            // Procura pela mensagem de erro na página
+            const errorDisplay = document.getElementById('error-display');
+            
+            // Se a mensagem de erro existir, nós a escondemos
+            if (errorDisplay) {
+                errorDisplay.style.display = 'none';
+            }
+
+            // Desabilita o botão e muda o texto para dar feedback ao usuário
+            submitButton.disabled = true;
+            submitButton.textContent = 'Baixando...';
+        });
+    </script>
+</body>
+</html>
