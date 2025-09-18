@@ -8,9 +8,8 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from app import app # Importa a instância do Flask do app.py
 
-# --- As funções que antes estavam em app.py agora estão aqui ---
-
-logging.basicConfig(level=logging.INFO)
+# --- Configurações Iniciais ---
+# logging.basicConfig(level=logging.INFO)
 
 try:
     spotify = spotipy.Spotify(auth_manager=SpotifyClientCredentials())
@@ -29,11 +28,29 @@ def get_ffmpeg_path():
 # --- A classe API que será a "ponte" entre Python e JavaScript ---
 
 class Api:
-    def download(self, url):
+    def get_title(self, url):
+        """Busca apenas o título de uma URL para feedback rápido."""
+        try:
+            if "spotify.com" in url:
+                if not spotify:
+                     raise Exception("Autenticação com Spotify não foi configurada.")
+                track = spotify.track(url)
+                track_info = f"{track['artists'][0]['name']} - {track['name']}"
+                return {'status': 'success', 'title': track_info}
+            else:
+                ydl_opts = {'noplaylist': True, 'quiet': True}
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info_dict = ydl.extract_info(url, download=False)
+                    return {'status': 'success', 'title': info_dict.get('title', 'Título desconhecido')}
+        except Exception as e:
+            logging.error(f"Erro ao buscar título: {e}")
+            return {'status': 'error', 'message': f'Não foi possível obter o título da URL.'}
+
+    def download(self, url, quality):
+        """Executa o download e salva o arquivo na qualidade escolhida."""
         if not url:
             return {'status': 'error', 'message': 'URL não pode estar vazia.'}
 
-        # Encontra a pasta de Downloads do usuário
         downloads_path = os.path.join(os.path.expanduser('~'), 'Downloads')
         temp_dir = tempfile.mkdtemp()
         search_query = url
@@ -43,7 +60,8 @@ class Api:
             if "spotify.com" in url:
                 if not spotify:
                      raise Exception("Autenticação com Spotify não foi configurada ou falhou.")
-                track_info = spotify.track(url)['name'] + ' - ' + spotify.track(url)['artists'][0]['name']
+                track = spotify.track(url)
+                track_info = f"{track['artists'][0]['name']} - {track['name']}"
                 download_title_base = track_info
                 search_query = f"ytsearch1:{track_info}"
             
@@ -51,14 +69,16 @@ class Api:
                 'format': 'bestaudio/best',
                 'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
                 'ffmpeg_location': get_ffmpeg_path(),
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }],
                 'noplaylist': True,
                 'match_filter': yt_dlp.utils.match_filter_func("duration < 600"),
             }
+
+            if quality == 'mp3':
+                ydl_opts['postprocessors'] = [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }]
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(search_query, download=True)
@@ -69,15 +89,29 @@ class Api:
 
                 if "spotify.com" not in url:
                     download_title_base = info_dict.get('title', 'audio')
-
-                temp_file_path = ydl.prepare_filename(info_dict).replace('.webm', '.mp3').replace('.m4a', '.mp3')
-                final_file_path = os.path.join(downloads_path, f"{download_title_base}.mp3")
                 
-                # Move o arquivo do diretório temporário para a pasta de Downloads
-                os.rename(temp_file_path, final_file_path)
+                temp_filename = ydl.prepare_filename(info_dict)
+
+                if quality == 'mp3':
+                    base, _ = os.path.splitext(temp_filename)
+                    final_temp_path = base + '.mp3'
+                    final_extension = '.mp3'
+                else:
+                    final_temp_path = temp_filename
+                    _, final_extension = os.path.splitext(temp_filename)
+
+                sanitized_title = "".join(i for i in download_title_base if i not in r'\/:*?"<>|')
+                final_file_path = os.path.join(downloads_path, f"{sanitized_title}{final_extension}")
+                
+                count = 1
+                while os.path.exists(final_file_path):
+                    final_file_path = os.path.join(downloads_path, f"{sanitized_title} ({count}){final_extension}")
+                    count += 1
+
+                os.rename(final_temp_path, final_file_path)
                 
             logging.info(f"Download concluído! Arquivo salvo em: {final_file_path}")
-            return {'status': 'success', 'message': f'Download Concluído! Salvo em "{final_file_path}"'}
+            return {'status': 'success', 'title': sanitized_title}
 
         except Exception as e:
             logging.error(f"Ocorreu um erro geral: {e}")
@@ -87,6 +121,11 @@ class Api:
 
 if __name__ == '__main__':
     api = Api()
-    # Expomos a classe 'api' para o JavaScript
-    window = webview.create_window('Download do Prado', app, js_api=api, width=800, height=650)
-    webview.start(debug=False)
+    window = webview.create_window(
+        'Pradofy',
+        app,
+        js_api=api,
+        width=800,
+        height=650
+    )
+    webview.start(debug=False, gui='edgechromium')

@@ -3,28 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Download do Prado</title>
+    <title>Pradofy - Spotify para MP3</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}">
     <style>
-        /* Seu CSS continua igual */
         :root { --background-color: #f4f4f9; --container-bg: #ffffff; --text-color: #333; --primary-color: #007bff; --primary-hover: #0056b3; --error-color: #dc3545; --success-color: #28a745; --border-radius: 8px; --box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--background-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .container { background-color: var(--container-bg); padding: 2rem 2.5rem; border-radius: var(--border-radius); box-shadow: var(--box-shadow); text-align: center; width: 90%; max-width: 500px; }
         h1 { margin-bottom: 1.5rem; }
-        .url-input { width: 100%; padding: 0.8rem; font-size: 1rem; border: 1px solid #ccc; border-radius: var(--border-radius); box-sizing: border-box; margin-bottom: 1.5rem; }
+        .url-input { width: 100%; padding: 0.8rem; font-size: 1rem; border: 1px solid #ccc; border-radius: var(--border-radius); box-sizing: border-box; margin-bottom: 1rem; }
+        /* Estilos para as opções de formato */
+        .format-options { display: flex; justify-content: center; gap: 2rem; margin-bottom: 1.5rem; }
+        .format-options label { display: flex; align-items: center; cursor: pointer; }
+        .format-options input { margin-right: 0.5rem; }
         .submit-btn { width: 100%; padding: 0.8rem; font-size: 1.1rem; font-weight: bold; color: #fff; background-color: var(--primary-color); border: none; border-radius: var(--border-radius); cursor: pointer; transition: background-color 0.2s; }
         .submit-btn:disabled { background-color: #a0a0a0; cursor: not-allowed; }
-        .status-message { color: var(--text-color); margin-top: 1rem; font-weight: 500; min-height: 1.5em; }
+        .download-info { font-weight: 500; min-height: 1.5em; margin-bottom: 1rem; color: var(--text-color); font-style: italic; }
+        .status-message { font-weight: bold; min-height: 1.5em; }
         .status-message.error { color: var(--error-color); }
         .status-message.success { color: var(--success-color); }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Download do Prado</h1>
+        <h1>Pradofy - Spotify para MP3</h1>
         <form id="download-form">
             <input type="url" name="url" id="url-input" class="url-input" placeholder="Cole a URL (YouTube, Spotify, etc)" required>
-            <button type="submit" class="submit-btn" id="submit-btn">Baixar MP3</button>
+            
+            <div class="format-options">
+                <label>
+                    <input type="radio" name="quality" value="mp3" checked> MP3
+                </label>
+                <label>
+                    <input type="radio" name="quality" value="original"> Qualidade Original
+                </label>
+            </div>
+
+            <p id="download-info" class="download-info"></p>
+            <button type="submit" class="submit-btn" id="submit-btn">Baixar Áudio</button>
         </form>
         <p id="status-message" class="status-message"></p>
     </div>
@@ -33,42 +48,50 @@
         const downloadForm = document.getElementById('download-form');
         const urlInput = document.getElementById('url-input');
         const submitButton = document.getElementById('submit-btn');
+        const downloadInfo = document.getElementById('download-info');
         const statusMessage = document.getElementById('status-message');
 
-        // A função agora é 'async' para esperar a resposta do Python
         downloadForm.addEventListener('submit', async (event) => {
-            // Previne o envio padrão do formulário
             event.preventDefault();
-
-            // Pega a URL e limpa mensagens antigas
             const url = urlInput.value;
+            // Pega o valor da opção de qualidade selecionada
+            const selectedQuality = document.querySelector('input[name="quality"]:checked').value;
+            
+            downloadInfo.textContent = '';
             statusMessage.textContent = '';
             statusMessage.className = 'status-message';
-            
-            // Desabilita o botão e mostra feedback
             submitButton.disabled = true;
-            submitButton.textContent = 'Baixando...';
 
             try {
-                // Chama a função 'download' do Python e espera o resultado
-                const result = await window.pywebview.api.download(url);
+                submitButton.textContent = 'Procurando...';
+                const titleResult = await window.pywebview.api.get_title(url);
+
+                if (titleResult.status === 'error') throw new Error(titleResult.message);
                 
-                // Exibe o resultado (sucesso ou erro) retornado pelo Python
-                if (result.status === 'success') {
-                    statusMessage.textContent = 'Download Concluído!';
+                const songTitle = titleResult.title;
+                downloadInfo.textContent = `Baixando: "${songTitle}"`;
+                submitButton.textContent = 'Baixando...';
+
+                // Envia a URL e a qualidade escolhida para o Python
+                const downloadResult = await window.pywebview.api.download(url, selectedQuality);
+
+                if (downloadResult.status === 'success') {
+                    downloadInfo.textContent = '';
+                    urlInput.value = '';
+                    statusMessage.textContent = `Download de "${downloadResult.title}" concluído!`;
                     statusMessage.classList.add('success');
                 } else {
-                    statusMessage.textContent = result.message;
-                    statusMessage.classList.add('error');
+                    throw new Error(downloadResult.message);
                 }
+
             } catch (e) {
-                statusMessage.textContent = 'Ocorreu um erro inesperado na comunicação.';
+                downloadInfo.textContent = '';
+                statusMessage.textContent = e.message;
                 statusMessage.classList.add('error');
             }
 
-            // Reabilita o botão
             submitButton.disabled = false;
-            submitButton.textContent = 'Baixar MP3';
+            submitButton.textContent = 'Baixar Áudio';
         });
     </script>
 </body>
